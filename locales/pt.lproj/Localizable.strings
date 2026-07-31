@@ -52,3 +52,17 @@
 "worker_copy_interrupted" = "Cópia interrompida [%@/%@]: %@; pode ser retomada";
 "worker_all_verified" = "Todas as %@ pasta(s) passaram na verificação de conteúdo.";
 "worker_all_copied" = "Todas as %@ pasta(s) foram copiadas. A verificação de conteúdo está disponível.";
+"space_title" = "Verificação de espaço em disco";
+"check_space" = "Verificar espaço";
+"space_not_checked" = "Ainda não verificado — será verificado automaticamente ao iniciar";
+"space_checking" = "Calculando os dados reais ainda por copiar…";
+"space_ok" = "Espaço suficiente, incluindo a margem de segurança";
+"space_warning" = "Espaço suficiente para copiar, mas com margem de segurança reduzida";
+"space_insufficient" = "Espaço insuficiente — cópia bloqueada";
+"space_error" = "Falha na verificação de espaço — consulte o registro";
+"space_detail" = "Necessário: %@   Disponível: %@   Margem de segurança: %@";
+"worker_preflight_scanning" = "Verificando espaço [%@/%@]: %@";
+"worker_preflight_ok" = "Verificação de espaço em disco concluída.";
+"worker_preflight_warning" = "Há espaço para copiar, mas está abaixo da margem de segurança recomendada.";
+"worker_preflight_insufficient" = "Não há espaço suficiente no disco. A cópia não foi iniciada.";
+"worker_preflight_error" = "Falha na verificação de espaço: %@ (consulte o registro)";

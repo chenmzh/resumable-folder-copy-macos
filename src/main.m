@@ -1,9 +1,33 @@
 #import <Cocoa/Cocoa.h>
+#import <limits.h>
 #import <signal.h>
 
 static NSString * const SourcesDefaultsKey = @"TransferSources";
 static NSString * const DestinationDefaultsKey = @"TransferDestination";
 static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
+
+@interface CapacityBarView : NSView
+@property(nonatomic) double value;
+@property(nonatomic) NSColor *fillColor;
+@end
+
+@implementation CapacityBarView
+- (BOOL)isFlipped { return YES; }
+- (void)setValue:(double)value { _value = MIN(100.0, MAX(0.0, value)); [self setNeedsDisplay:YES]; }
+- (void)setFillColor:(NSColor *)fillColor { _fillColor = fillColor; [self setNeedsDisplay:YES]; }
+- (void)drawRect:(NSRect)dirtyRect {
+    NSRect bounds = NSInsetRect(self.bounds, 0.5, 0.5);
+    NSBezierPath *background = [NSBezierPath bezierPathWithRoundedRect:bounds xRadius:5 yRadius:5];
+    [NSColor.separatorColor setFill];
+    [background fill];
+    if (self.value <= 0) return;
+    NSRect fillRect = bounds;
+    fillRect.size.width = MAX(5.0, bounds.size.width * self.value / 100.0);
+    NSBezierPath *fill = [NSBezierPath bezierPathWithRoundedRect:fillRect xRadius:5 yRadius:5];
+    [(self.fillColor ?: NSColor.systemGrayColor) setFill];
+    [fill fill];
+}
+@end
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, NSTableViewDataSource, NSTableViewDelegate>
 @property NSWindow *window;
@@ -22,11 +46,17 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
 @property NSTextField *statusLabel;
 @property NSTextField *progressLabel;
 @property NSProgressIndicator *progressBar;
+@property NSBox *spaceBox;
+@property NSTextField *spaceSummaryLabel;
+@property NSTextField *spaceDetailLabel;
+@property CapacityBarView *spaceBar;
+@property NSString *spaceResultCode;
 @property NSPopUpButton *languagePopup;
 @property NSButton *chooseSourcesButton;
 @property NSButton *removeButton;
 @property NSButton *clearButton;
 @property NSButton *chooseDestinationButton;
+@property NSButton *checkSpaceButton;
 @property NSButton *startButton;
 @property NSButton *pauseButton;
 @property NSButton *verifyButton;
@@ -114,6 +144,8 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     self.removeButton.title = [self L:@"remove_selected"];
     self.clearButton.title = [self L:@"clear_list"];
     self.chooseDestinationButton.title = [self L:@"choose_destination"];
+    self.spaceBox.title = [self L:@"space_title"];
+    self.checkSpaceButton.title = [self L:@"check_space"];
     self.startButton.title = [self L:@"start_resume"];
     self.pauseButton.title = [self L:@"pause"];
     self.verifyButton.title = [self L:@"verify"];
@@ -139,7 +171,7 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
 }
 
 - (void)buildWindow {
-    self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 820, 650)
+    self.window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 820, 760)
                                                styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable
                                                  backing:NSBackingStoreBuffered defer:NO];
     self.window.title = [self L:@"app_title"];
@@ -147,13 +179,13 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     NSView *content = self.window.contentView;
 
     self.titleLabel = [self label:[self L:@"app_title"] size:25 weight:NSFontWeightSemibold color:NSColor.labelColor];
-    self.titleLabel.frame = NSMakeRect(28, 600, 500, 34);
+    self.titleLabel.frame = NSMakeRect(28, 710, 500, 34);
     [content addSubview:self.titleLabel];
     self.languageLabel = [self label:[self L:@"language_label"] size:12 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
     self.languageLabel.alignment = NSTextAlignmentRight;
-    self.languageLabel.frame = NSMakeRect(540, 607, 90, 22);
+    self.languageLabel.frame = NSMakeRect(540, 717, 90, 22);
     [content addSubview:self.languageLabel];
-    self.languagePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(640, 600, 152, 30) pullsDown:NO];
+    self.languagePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(640, 710, 152, 30) pullsDown:NO];
     self.languagePopup.target = self;
     self.languagePopup.action = @selector(changeLanguage:);
     for (NSDictionary *option in [self languageOptions]) {
@@ -163,11 +195,11 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     }
     [content addSubview:self.languagePopup];
     self.subtitleLabel = [self label:[self L:@"subtitle"] size:13 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
-    self.subtitleLabel.frame = NSMakeRect(28, 574, 764, 22);
+    self.subtitleLabel.frame = NSMakeRect(28, 684, 764, 22);
     [content addSubview:self.subtitleLabel];
 
     self.sourceTitleLabel = [self label:[self L:@"source_title"] size:14 weight:NSFontWeightSemibold color:NSColor.labelColor];
-    self.sourceTitleLabel.frame = NSMakeRect(28, 538, 760, 22);
+    self.sourceTitleLabel.frame = NSMakeRect(28, 648, 760, 22);
     [content addSubview:self.sourceTitleLabel];
 
     self.sourceTable = [[NSTableView alloc] initWithFrame:NSMakeRect(0, 0, 750, 130)];
@@ -180,29 +212,44 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     self.sourceTable.delegate = self;
     self.sourceTable.dataSource = self;
     self.sourceTable.allowsMultipleSelection = YES;
-    NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(28, 395, 764, 135)];
+    NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(28, 505, 764, 135)];
     scroll.documentView = self.sourceTable;
     scroll.hasVerticalScroller = YES;
     scroll.borderType = NSBezelBorder;
     [content addSubview:scroll];
 
-    self.chooseSourcesButton = [self button:[self L:@"choose_sources"] action:@selector(chooseSources:) frame:NSMakeRect(28, 354, 150, 32)];
-    self.removeButton = [self button:[self L:@"remove_selected"] action:@selector(removeSelectedSources:) frame:NSMakeRect(190, 354, 120, 32)];
-    self.clearButton = [self button:[self L:@"clear_list"] action:@selector(clearSources:) frame:NSMakeRect(322, 354, 110, 32)];
+    self.chooseSourcesButton = [self button:[self L:@"choose_sources"] action:@selector(chooseSources:) frame:NSMakeRect(28, 464, 150, 32)];
+    self.removeButton = [self button:[self L:@"remove_selected"] action:@selector(removeSelectedSources:) frame:NSMakeRect(190, 464, 120, 32)];
+    self.clearButton = [self button:[self L:@"clear_list"] action:@selector(clearSources:) frame:NSMakeRect(322, 464, 110, 32)];
     [content addSubview:self.chooseSourcesButton];
     [content addSubview:self.removeButton];
     [content addSubview:self.clearButton];
 
     self.destinationTitleLabel = [self label:[self L:@"destination_title"] size:14 weight:NSFontWeightSemibold color:NSColor.labelColor];
-    self.destinationTitleLabel.frame = NSMakeRect(28, 316, 300, 22);
+    self.destinationTitleLabel.frame = NSMakeRect(28, 426, 300, 22);
     [content addSubview:self.destinationTitleLabel];
-    self.destinationField = [[NSTextField alloc] initWithFrame:NSMakeRect(28, 278, 610, 30)];
+    self.destinationField = [[NSTextField alloc] initWithFrame:NSMakeRect(28, 388, 610, 30)];
     self.destinationField.editable = NO;
     self.destinationField.selectable = YES;
     self.destinationField.stringValue = self.destination ?: @"";
     [content addSubview:self.destinationField];
-    self.chooseDestinationButton = [self button:[self L:@"choose_destination"] action:@selector(chooseDestination:) frame:NSMakeRect(650, 277, 142, 32)];
+    self.chooseDestinationButton = [self button:[self L:@"choose_destination"] action:@selector(chooseDestination:) frame:NSMakeRect(650, 387, 142, 32)];
     [content addSubview:self.chooseDestinationButton];
+
+    self.spaceBox = [[NSBox alloc] initWithFrame:NSMakeRect(28, 275, 764, 100)];
+    self.spaceBox.title = [self L:@"space_title"];
+    [content addSubview:self.spaceBox];
+    self.spaceSummaryLabel = [self label:[self L:@"space_not_checked"] size:14 weight:NSFontWeightSemibold color:NSColor.secondaryLabelColor];
+    self.spaceSummaryLabel.frame = NSMakeRect(16, 53, 570, 22);
+    [self.spaceBox.contentView addSubview:self.spaceSummaryLabel];
+    self.spaceBar = [[CapacityBarView alloc] initWithFrame:NSMakeRect(16, 34, 570, 12)];
+    self.spaceBar.value = 0;
+    [self.spaceBox.contentView addSubview:self.spaceBar];
+    self.spaceDetailLabel = [self label:@"" size:11 weight:NSFontWeightRegular color:NSColor.secondaryLabelColor];
+    self.spaceDetailLabel.frame = NSMakeRect(16, 8, 570, 18);
+    [self.spaceBox.contentView addSubview:self.spaceDetailLabel];
+    self.checkSpaceButton = [self button:[self L:@"check_space"] action:@selector(checkSpace:) frame:NSMakeRect(602, 31, 136, 32)];
+    [self.spaceBox.contentView addSubview:self.checkSpaceButton];
 
     self.statusLabel = [self label:[self L:@"status_loading"] size:17 weight:NSFontWeightMedium color:NSColor.labelColor];
     self.statusLabel.frame = NSMakeRect(28, 232, 764, 28);
@@ -315,6 +362,80 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     return text.length ? [text componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet] : @[];
 }
 
+- (NSString *)canonicalPath:(NSString *)path {
+    return path.stringByStandardizingPath.stringByResolvingSymlinksInPath;
+}
+
+- (BOOL)preflightConfigurationMatches:(NSArray<NSString *> *)configuration {
+    if (!self.destination.length || configuration.count != self.sources.count + 1) return NO;
+    if (![[self canonicalPath:configuration[0]] isEqualToString:[self canonicalPath:self.destination]]) return NO;
+    for (NSUInteger index = 0; index < self.sources.count; index++) {
+        if (![[self canonicalPath:configuration[index + 1]] isEqualToString:[self canonicalPath:self.sources[index]]]) return NO;
+    }
+    return YES;
+}
+
+- (NSString *)formattedBytes:(unsigned long long)bytes {
+    return [NSByteCountFormatter stringFromByteCount:(long long)MIN(bytes, (unsigned long long)LLONG_MAX)
+                                          countStyle:NSByteCountFormatterCountStyleFile];
+}
+
+- (void)refreshSpacePanel {
+    NSArray<NSString *> *configuration = [self readLines:[[self stateRoot] stringByAppendingPathComponent:@"preflight-config.txt"]];
+    NSString *code = [self readText:[[self stateRoot] stringByAppendingPathComponent:@"preflight-code.txt"]];
+    if (![self preflightConfigurationMatches:configuration]) code = nil;
+    self.spaceResultCode = code;
+
+    self.spaceBar.value = 0;
+    self.spaceBar.fillColor = NSColor.systemGrayColor;
+    self.spaceDetailLabel.stringValue = @"";
+
+    if (!code.length) {
+        self.spaceSummaryLabel.stringValue = [self L:@"space_not_checked"];
+        self.spaceSummaryLabel.textColor = NSColor.secondaryLabelColor;
+        return;
+    }
+    if ([code isEqualToString:@"checking"]) {
+        self.spaceSummaryLabel.stringValue = [self L:@"space_checking"];
+        self.spaceSummaryLabel.textColor = NSColor.systemBlueColor;
+        self.spaceBar.value = 18;
+        self.spaceBar.fillColor = NSColor.systemBlueColor;
+        return;
+    }
+
+    NSArray<NSString *> *values = [self readLines:[[self stateRoot] stringByAppendingPathComponent:@"preflight-values.txt"]];
+    if (values.count < 4) {
+        self.spaceSummaryLabel.stringValue = [self L:@"space_error"];
+        self.spaceSummaryLabel.textColor = NSColor.systemRedColor;
+        return;
+    }
+    unsigned long long required = values[0].longLongValue < 0 ? 0 : (unsigned long long)values[0].longLongValue;
+    unsigned long long available = values[1].longLongValue < 0 ? 0 : (unsigned long long)values[1].longLongValue;
+    unsigned long long reserve = values[2].longLongValue < 0 ? 0 : (unsigned long long)values[2].longLongValue;
+    double percent = available > 0 ? 100.0 * ((double)required + (double)reserve) / (double)available : 100.0;
+    self.spaceBar.value = MIN(100.0, MAX(0.0, percent));
+    self.spaceDetailLabel.stringValue = [NSString stringWithFormat:[self L:@"space_detail"],
+                                              [self formattedBytes:required], [self formattedBytes:available], [self formattedBytes:reserve]];
+
+    if ([code isEqualToString:@"ok"]) {
+        self.spaceSummaryLabel.stringValue = [self L:@"space_ok"];
+        self.spaceSummaryLabel.textColor = NSColor.systemGreenColor;
+        self.spaceBar.fillColor = NSColor.systemGreenColor;
+    } else if ([code isEqualToString:@"warning"]) {
+        self.spaceSummaryLabel.stringValue = [self L:@"space_warning"];
+        self.spaceSummaryLabel.textColor = NSColor.systemOrangeColor;
+        self.spaceBar.fillColor = NSColor.systemOrangeColor;
+    } else if ([code isEqualToString:@"insufficient"]) {
+        self.spaceSummaryLabel.stringValue = [self L:@"space_insufficient"];
+        self.spaceSummaryLabel.textColor = NSColor.systemRedColor;
+        self.spaceBar.fillColor = NSColor.systemRedColor;
+    } else {
+        self.spaceSummaryLabel.stringValue = [self L:@"space_error"];
+        self.spaceSummaryLabel.textColor = NSColor.systemRedColor;
+        self.spaceBar.fillColor = NSColor.systemRedColor;
+    }
+}
+
 - (NSString *)localizedWorkerStatus:(NSString *)code arguments:(NSArray<NSString *> *)arguments {
     if (!code.length) return nil;
     NSString *(^arg)(NSUInteger) = ^NSString *(NSUInteger index) { return index < arguments.count ? arguments[index] : @""; };
@@ -324,6 +445,15 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     }
     if ([code isEqualToString:@"copying"] || [code isEqualToString:@"completed_skip"] || [code isEqualToString:@"verifying"] || [code isEqualToString:@"verify_failed"] || [code isEqualToString:@"verify_difference"] || [code isEqualToString:@"copy_interrupted"]) {
         return [NSString stringWithFormat:[self L:[@"worker_" stringByAppendingString:code]], arg(0), arg(1), arg(2)];
+    }
+    if ([code isEqualToString:@"preflight_scanning"]) {
+        return [NSString stringWithFormat:[self L:@"worker_preflight_scanning"], arg(0), arg(1), arg(2)];
+    }
+    if ([code isEqualToString:@"preflight_ok"] || [code isEqualToString:@"preflight_warning"] || [code isEqualToString:@"preflight_insufficient"]) {
+        return [self L:[@"worker_" stringByAppendingString:code]];
+    }
+    if ([code isEqualToString:@"preflight_error"]) {
+        return [NSString stringWithFormat:[self L:@"worker_preflight_error"], arg(0)];
     }
     if ([code isEqualToString:@"all_verified"] || [code isEqualToString:@"all_copied"]) {
         return [NSString stringWithFormat:[self L:[@"worker_" stringByAppendingString:code]], arg(0)];
@@ -341,6 +471,7 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     NSString *statusCode = [self readText:[[self stateRoot] stringByAppendingPathComponent:@"status-code.txt"]];
     NSArray *statusArguments = [self readLines:[[self stateRoot] stringByAppendingPathComponent:@"status-arguments.txt"]];
     NSString *workerStatus = [self localizedWorkerStatus:statusCode arguments:statusArguments];
+    [self refreshSpacePanel];
     if (self.sources.count == 0) self.statusLabel.stringValue = [self L:@"status_choose_source"];
     else if (self.destination.length == 0) self.statusLabel.stringValue = [self L:@"status_choose_destination"];
     else if (![NSFileManager.defaultManager fileExistsAtPath:self.destination]) self.statusLabel.stringValue = [self L:@"status_destination_unavailable"];
@@ -374,8 +505,10 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     self.removeButton.enabled = configurable && self.sourceTable.selectedRowIndexes.count > 0;
     self.clearButton.enabled = configurable && self.sources.count > 0;
     self.chooseDestinationButton.enabled = configurable;
-    self.startButton.enabled = configurable && self.sources.count > 0 && self.destination.length > 0;
-    self.verifyButton.enabled = self.startButton.enabled;
+    BOOL hasConfiguration = self.sources.count > 0 && self.destination.length > 0;
+    self.checkSpaceButton.enabled = configurable && hasConfiguration;
+    self.startButton.enabled = configurable && hasConfiguration && ![self.spaceResultCode isEqualToString:@"insufficient"];
+    self.verifyButton.enabled = configurable && hasConfiguration;
     self.pauseButton.enabled = running;
 }
 
@@ -407,13 +540,13 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     [alert runModal];
 }
 
-- (void)launchWorker:(BOOL)verifyOnly {
+- (void)launchWorkerWithOption:(NSString *)option {
     NSString *error = [self configurationError];
     if (error) { [self showAlert:error]; return; }
     NSString *script = [NSBundle.mainBundle pathForResource:@"transfer" ofType:@"zsh"];
     if (!script) { [self showAlert:[self L:@"error_missing_component"]] ; return; }
     NSMutableArray *arguments = [NSMutableArray arrayWithObjects:script, @"--destination", self.destination, nil];
-    if (verifyOnly) [arguments addObject:@"--verify-only"];
+    if (option.length) [arguments addObject:option];
     for (NSString *source in self.sources) { [arguments addObject:@"--source"]; [arguments addObject:source]; }
     NSTask *task = [[NSTask alloc] init];
     task.launchPath = @"/bin/zsh";
@@ -430,9 +563,10 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     }
 }
 
-- (void)startTransfer:(id)sender { [self launchWorker:NO]; }
-- (void)resumeAfterLaunch { [self launchWorker:NO]; }
-- (void)startVerification:(id)sender { [self launchWorker:YES]; }
+- (void)startTransfer:(id)sender { [self launchWorkerWithOption:@"--preflight-first"]; }
+- (void)resumeAfterLaunch { [self launchWorkerWithOption:@"--preflight-first"]; }
+- (void)startVerification:(id)sender { [self launchWorkerWithOption:@"--verify-only"]; }
+- (void)checkSpace:(id)sender { [self launchWorkerWithOption:@"--preflight-only"]; }
 
 - (void)pauseTransfer:(id)sender {
     pid_t pid = [self activePID];

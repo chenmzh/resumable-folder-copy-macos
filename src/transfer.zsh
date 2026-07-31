@@ -5,6 +5,8 @@ unsetopt BG_NICE
 
 DEST_ROOT=""
 VERIFY_ONLY=0
+PREFLIGHT_ONLY=0
+PREFLIGHT_FIRST=0
 SOURCES=()
 
 while (( $# > 0 )); do
@@ -21,6 +23,14 @@ while (( $# > 0 )); do
       ;;
     --verify-only)
       VERIFY_ONLY=1
+      shift
+      ;;
+    --preflight-only)
+      PREFLIGHT_ONLY=1
+      shift
+      ;;
+    --preflight-first)
+      PREFLIGHT_FIRST=1
       shift
       ;;
     *)
@@ -41,6 +51,9 @@ PID_FILE="$STATE_ROOT/worker.pid"
 CHILD_PID_FILE="$STATE_ROOT/rsync.pid"
 LOCK_DIR="$STATE_ROOT/lock"
 PROGRESS_FILE="$STATE_ROOT/progress.txt"
+PREFLIGHT_CODE_FILE="$STATE_ROOT/preflight-code.txt"
+PREFLIGHT_VALUES_FILE="$STATE_ROOT/preflight-values.txt"
+PREFLIGHT_CONFIG_FILE="$STATE_ROOT/preflight-config.txt"
 
 if [[ -x /opt/homebrew/bin/rsync ]]; then
   RSYNC_BIN=/opt/homebrew/bin/rsync
@@ -111,11 +124,105 @@ for raw_source in "${SOURCES[@]}"; do
   NORMALIZED_SOURCES+=("$source_path")
 done
 
+source_key() {
+  print -rn -- "$1" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print substr($1,1,16)}'
+}
+
+write_preflight_config() {
+  : >| "$PREFLIGHT_CONFIG_FILE"
+  print -r -- "$DEST_ROOT" >> "$PREFLIGHT_CONFIG_FILE"
+  local source_path
+  for source_path in "${NORMALIZED_SOURCES[@]}"; do print -r -- "$source_path" >> "$PREFLIGHT_CONFIG_FILE"; done
+}
+
+write_preflight_result() {
+  local code="$1" required="$2" available="$3" reserve="$4" transfer="$5"
+  print -r -- "$code" >| "$PREFLIGHT_CODE_FILE"
+  {
+    print -r -- "$required"
+    print -r -- "$available"
+    print -r -- "$reserve"
+    print -r -- "$transfer"
+  } >| "$PREFLIGHT_VALUES_FILE"
+}
+
+preflight_all() {
+  local total=${#NORMALIZED_SOURCES[@]} index=0
+  local cumulative_delta=0 required_peak=0 total_transfer=0
+  local listing="$STATE_ROOT/preflight-listing.$$.txt"
+  rm -f "$PREFLIGHT_VALUES_FILE"
+  print -r -- "checking" >| "$PREFLIGHT_CODE_FILE"
+  write_preflight_config
+
+  local src name dst key done_marker change length relative target old_size temp_peak
+  for src in "${NORMALIZED_SOURCES[@]}"; do
+    (( index++ ))
+    name="${src:t}"
+    dst="$DEST_ROOT/$name"
+    key="$(source_key "$src")"
+    done_marker="$STATE_ROOT/${name}.${key}.copy-complete"
+    [[ -f "$done_marker" ]] && continue
+    set_status preflight_scanning "Checking disk space [$index/$total]: $name" "$index" "$total" "$name"
+    mkdir -p "$dst"
+    "$RSYNC_BIN" -an --partial --partial-dir='.cygentig-rsync-partial' \
+      --exclude='.cygentig-rsync-partial/' --itemize-changes --out-format='%i|%l|%n' \
+      "$src/" "$dst/" >| "$listing" 2>> "$LOG_FILE" &
+    local child=$!
+    print -r -- "$child" >| "$CHILD_PID_FILE"
+    wait "$child"
+    local result=$?
+    rm -f "$CHILD_PID_FILE"
+    if (( result != 0 )); then
+      rm -f "$listing"
+      write_preflight_result error 0 0 0 0
+      set_status preflight_error "Disk space check failed: $name (see log)" "$name"
+      return "$result"
+    fi
+
+    while IFS='|' read -r change length relative; do
+      [[ "$change" == '>f'* ]] || continue
+      [[ "$length" == <-> ]] || continue
+      target="$dst/$relative"
+      old_size=0
+      if [[ -f "$target" ]]; then old_size="$(/usr/bin/stat -f '%z' "$target" 2>/dev/null || print 0)"; fi
+      (( temp_peak = cumulative_delta + length ))
+      (( temp_peak > required_peak )) && required_peak=$temp_peak
+      (( cumulative_delta += length - old_size ))
+      (( total_transfer += length ))
+    done < "$listing"
+  done
+  rm -f "$listing"
+
+  local available reserve five_gib=5368709120
+  available="$(/bin/df -Pk "$DEST_ROOT" 2>/dev/null | /usr/bin/awk 'NR == 2 {printf "%.0f", $4 * 1024}')"
+  if [[ "$available" != <-> ]]; then
+    write_preflight_result error "$required_peak" 0 0 "$total_transfer"
+    set_status preflight_error "Could not read available disk space (see log)" "$DEST_ROOT"
+    return 1
+  fi
+  (( reserve = required_peak / 20 ))
+  (( reserve < five_gib )) && reserve=$five_gib
+  (( required_peak == 0 )) && reserve=0
+
+  if (( required_peak > available )); then
+    write_preflight_result insufficient "$required_peak" "$available" "$reserve" "$total_transfer"
+    set_status preflight_insufficient "Not enough disk space." "$required_peak" "$available" "$reserve"
+    return 4
+  elif (( required_peak + reserve > available )); then
+    write_preflight_result warning "$required_peak" "$available" "$reserve" "$total_transfer"
+    set_status preflight_warning "Enough space to copy, but below the recommended safety margin." "$required_peak" "$available" "$reserve"
+    return 0
+  fi
+  write_preflight_result ok "$required_peak" "$available" "$reserve" "$total_transfer"
+  set_status preflight_ok "Disk space check passed." "$required_peak" "$available" "$reserve"
+  return 0
+}
+
 verify_job() {
   local src="$1" index="$2" total="$3"
   local name="${src:t}" dst="$DEST_ROOT/${src:t}/"
-  local source_key="$(print -rn -- "$src" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print substr($1,1,16)}')"
-  local audit="$STATE_ROOT/${name}.${source_key}.checksum-audit.txt"
+  local key="$(source_key "$src")"
+  local audit="$STATE_ROOT/${name}.${key}.checksum-audit.txt"
   set_status verifying "Verifying [$index/$total]: $name" "$index" "$total" "$name"
   log "Starting content verification $src/ -> $dst"
   if (( RSYNC3 )); then
@@ -136,8 +243,8 @@ verify_job() {
 copy_job() {
   local src="$1" index="$2" total="$3"
   local name="${src:t}" dst="$DEST_ROOT/${src:t}/"
-  local source_key="$(print -rn -- "$src" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print substr($1,1,16)}')"
-  local done_marker="$STATE_ROOT/${name}.${source_key}.copy-complete"
+  local key="$(source_key "$src")"
+  local done_marker="$STATE_ROOT/${name}.${key}.copy-complete"
   if [[ -f "$done_marker" ]]; then
     set_status completed_skip "Already complete, skipped [$index/$total]: $name" "$index" "$total" "$name"
     return 0
@@ -182,6 +289,11 @@ copy_job() {
 
 total=${#NORMALIZED_SOURCES[@]}
 index=0
+if (( PREFLIGHT_ONLY )); then
+  preflight_all
+  exit $?
+fi
+
 if (( VERIFY_ONLY )); then
   for source_path in "${NORMALIZED_SOURCES[@]}"; do
     (( index++ ))
@@ -189,6 +301,10 @@ if (( VERIFY_ONLY )); then
   done
   set_status all_verified "All $total folders passed content verification." "$total"
   exit 0
+fi
+
+if (( PREFLIGHT_FIRST )); then
+  preflight_all || exit $?
 fi
 
 for source_path in "${NORMALIZED_SOURCES[@]}"; do

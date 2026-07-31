@@ -28,5 +28,5 @@ chmod +x "$CONTENTS/MacOS/ResumableFolderCopy" "$CONTENTS/Resources/transfer.zsh
 codesign --force --deep --sign - "$APP_ROOT"
 codesign --verify --deep --strict "$APP_ROOT"
 
-ditto -c -k --sequesterRsrc --keepParent "$APP_ROOT" "$BUILD_ROOT/Resumable-Folder-Copy-v2.1.0-macOS-universal.zip"
+ditto -c -k --sequesterRsrc --keepParent "$APP_ROOT" "$BUILD_ROOT/Resumable-Folder-Copy-v2.2.0-macOS-universal.zip"
 print -- "Built: $APP_ROOT"

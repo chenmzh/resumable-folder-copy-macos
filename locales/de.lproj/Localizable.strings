@@ -52,3 +52,17 @@
 "worker_copy_interrupted" = "Kopieren unterbrochen [%@/%@]: %@; kann fortgesetzt werden";
 "worker_all_verified" = "Alle %@ Ordner haben die Inhaltsprüfung bestanden.";
 "worker_all_copied" = "Alle %@ Ordner wurden kopiert. Inhaltsprüfung ist verfügbar.";
+"space_title" = "Speicherplatzprüfung";
+"check_space" = "Speicher prüfen";
+"space_not_checked" = "Noch nicht geprüft – beim Start erfolgt die Prüfung automatisch";
+"space_checking" = "Tatsächlich ausstehende Kopiermenge wird berechnet…";
+"space_ok" = "Genügend Speicher einschließlich Sicherheitsreserve";
+"space_warning" = "Genügend zum Kopieren, aber geringe Sicherheitsreserve";
+"space_insufficient" = "Nicht genügend Speicher – Kopieren gesperrt";
+"space_error" = "Speicherprüfung fehlgeschlagen – siehe Protokoll";
+"space_detail" = "Benötigt: %@   Verfügbar: %@   Sicherheitsreserve: %@";
+"worker_preflight_scanning" = "Speicherplatz prüfen [%@/%@]: %@";
+"worker_preflight_ok" = "Speicherplatzprüfung bestanden.";
+"worker_preflight_warning" = "Genügend Speicher zum Kopieren, aber unter der empfohlenen Sicherheitsreserve.";
+"worker_preflight_insufficient" = "Nicht genügend Speicherplatz. Das Kopieren wurde nicht gestartet.";
+"worker_preflight_error" = "Speicherplatzprüfung fehlgeschlagen: %@ (siehe Protokoll)";
