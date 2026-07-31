@@ -11,12 +11,13 @@
 - 显示当前任务、百分比、速度和预计剩余时间
 - 支持暂停、继续、日志查看和逐内容 checksum 校验
 - 自动记住上次选择的源目录和目标目录
+- 默认英文，并可在运行时切换中文、德语、法语、意大利语、西班牙语、葡萄牙语、日语、韩语和阿拉伯语
 - 防止同名目标冲突和递归复制
 - Universal Binary：支持 Apple Silicon 与 Intel Mac
 
 ## 下载与安装
 
-从 [Releases](https://github.com/chenmzh/resumable-folder-copy-macos/releases/latest) 下载最新的 `Resumable-Folder-Copy-*.zip`，解压后打开 `断点续传复制.app`。
+从 [Releases](https://github.com/chenmzh/resumable-folder-copy-macos/releases/latest) 下载最新的 `Resumable-Folder-Copy-*.zip`，解压后打开 `Resumable Folder Copy.app`。
 
 这是一个开源、adhoc 签名但未经过 Apple 公证的 app。首次打开时如被 Gatekeeper 阻止，请在 Finder 中右键 app，选择“打开”。
 
@@ -46,7 +47,7 @@ app 不会删除目标目录中的额外文件，也不会使用破坏性的同�
 ./scripts/build.sh
 ```
 
-产物位于 `build/断点续传复制.app`，同时生成 Universal ZIP。
+产物位于 `build/Resumable Folder Copy.app`，同时生成 Universal ZIP。
 
 ## License
 
