@@ -470,7 +470,7 @@ static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
     if ([code isEqualToString:@"destination_unavailable"] || [code isEqualToString:@"source_unavailable"] || [code isEqualToString:@"duplicate_source"] || [code isEqualToString:@"recursive_target"]) {
         return [NSString stringWithFormat:[self L:[@"worker_" stringByAppendingString:code]], arg(0)];
     }
-    if ([code isEqualToString:@"copying"] || [code isEqualToString:@"completed_skip"] || [code isEqualToString:@"verifying"] || [code isEqualToString:@"verify_failed"] || [code isEqualToString:@"verify_difference"] || [code isEqualToString:@"copy_interrupted"]) {
+    if ([code isEqualToString:@"copying"] || [code isEqualToString:@"completed_skip"] || [code isEqualToString:@"verifying"] || [code isEqualToString:@"verify_failed"] || [code isEqualToString:@"verify_difference"] || [code isEqualToString:@"copy_interrupted"] || [code isEqualToString:@"preflight_directory_skipped"] || [code isEqualToString:@"directory_skipped"]) {
         return [NSString stringWithFormat:[self L:[@"worker_" stringByAppendingString:code]], arg(0), arg(1), arg(2)];
     }
     if ([code isEqualToString:@"retrying_unreadable"] || [code isEqualToString:@"copied_with_skips"]) {

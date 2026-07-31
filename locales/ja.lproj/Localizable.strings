@@ -67,8 +67,10 @@
 "worker_preflight_warning" = "コピー可能ですが、推奨される安全マージンを下回っています。";
 "worker_preflight_insufficient" = "ディスクの空き容量が不足しています。コピーは開始されませんでした。";
 "worker_preflight_error" = "空き容量の確認に失敗：%@（ログを確認）";
-"show_skipped_files" = "スキップしたファイル";
-"show_skipped_count" = "スキップしたファイル（%lu）";
+"show_skipped_files" = "スキップした項目";
+"show_skipped_count" = "スキップした項目（%lu）";
 "worker_retrying_unreadable" = "再試行中 [%@/%@]：%@；読み取れない項目を%@件スキップ";
 "worker_copied_with_skips" = "コピー済み [%@/%@]：%@；読み取れない項目を%@件スキップ";
 "worker_all_copied_with_skips" = "全%@フォルダを処理しました。読み取れない項目を%@件スキップしました。リストを開いて確認してください。";
+"worker_preflight_directory_skipped" = "空き容量確認中に読み取れないフォルダをスキップ [%@/%@]：%@";
+"worker_directory_skipped" = "読み取れないフォルダをスキップ [%@/%@]：%@";
