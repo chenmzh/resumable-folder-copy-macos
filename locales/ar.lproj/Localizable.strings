@@ -6,6 +6,7 @@
 "choose_sources" = "اختيار المصادر…";
 "remove_selected" = "إزالة المحدد";
 "clear_list" = "مسح القائمة";
+"remember_last_task" = "تذكّر المهمة السابقة";
 "destination_title" = "مجلد الوجهة";
 "choose_destination" = "اختيار الوجهة…";
 "status_loading" = "جارٍ تحميل الحالة…";
