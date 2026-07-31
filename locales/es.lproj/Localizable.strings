@@ -67,3 +67,8 @@
 "worker_preflight_warning" = "Hay espacio para copiar, pero está por debajo del margen de seguridad recomendado.";
 "worker_preflight_insufficient" = "No hay suficiente espacio en disco. La copia no se inició.";
 "worker_preflight_error" = "Falló la comprobación de espacio: %@ (consulta el registro)";
+"show_skipped_files" = "Archivos omitidos";
+"show_skipped_count" = "Archivos omitidos (%lu)";
+"worker_retrying_unreadable" = "Reintentando [%@/%@]: %@; se omiten %@ elementos ilegibles";
+"worker_copied_with_skips" = "Copiado [%@/%@]: %@; se omitieron %@ elementos ilegibles";
+"worker_all_copied_with_skips" = "Se procesaron las %@ carpetas; se omitieron %@ elementos ilegibles. Abre la lista.";

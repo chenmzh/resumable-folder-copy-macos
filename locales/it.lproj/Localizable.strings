@@ -67,3 +67,8 @@
 "worker_preflight_warning" = "Spazio sufficiente per copiare, ma inferiore al margine di sicurezza consigliato.";
 "worker_preflight_insufficient" = "Spazio su disco insufficiente. La copia non è stata avviata.";
 "worker_preflight_error" = "Controllo dello spazio non riuscito: %@ (vedi registro)";
+"show_skipped_files" = "File ignorati";
+"show_skipped_count" = "File ignorati (%lu)";
+"worker_retrying_unreadable" = "Nuovo tentativo [%@/%@]: %@; %@ elementi illeggibili ignorati";
+"worker_copied_with_skips" = "Copiato [%@/%@]: %@; %@ elementi illeggibili ignorati";
+"worker_all_copied_with_skips" = "Tutte le %@ cartelle sono state elaborate; %@ elementi illeggibili ignorati. Apri l’elenco.";

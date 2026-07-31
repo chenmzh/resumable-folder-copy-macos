@@ -54,6 +54,7 @@ PROGRESS_FILE="$STATE_ROOT/progress.txt"
 PREFLIGHT_CODE_FILE="$STATE_ROOT/preflight-code.txt"
 PREFLIGHT_VALUES_FILE="$STATE_ROOT/preflight-values.txt"
 PREFLIGHT_CONFIG_FILE="$STATE_ROOT/preflight-config.txt"
+SKIPPED_FILE="$STATE_ROOT/skipped-unreadable-files.txt"
 
 if [[ -x /opt/homebrew/bin/rsync ]]; then
   RSYNC_BIN=/opt/homebrew/bin/rsync
@@ -240,21 +241,14 @@ verify_job() {
   log "Verification passed: $name"
 }
 
-copy_job() {
-  local src="$1" index="$2" total="$3"
-  local name="${src:t}" dst="$DEST_ROOT/${src:t}/"
-  local key="$(source_key "$src")"
-  local done_marker="$STATE_ROOT/${name}.${key}.copy-complete"
-  if [[ -f "$done_marker" ]]; then
-    set_status completed_skip "Already complete, skipped [$index/$total]: $name" "$index" "$total" "$name"
-    return 0
-  fi
-  mkdir -p "$dst"
+run_copy_attempt() {
+  local src="$1" dst="$2" error_file="$3"
+  shift 3
+  local -a exclusions=("$@")
+  local child code parser progress_pipe
   rm -f "$PROGRESS_FILE"
-  set_status copying "Copying [$index/$total]: $name" "$index" "$total" "$name"
-  log "Starting/resuming $src/ -> $dst (rsync: $RSYNC_BIN)"
   if (( RSYNC3 )); then
-    local progress_pipe="$STATE_ROOT/progress.fifo"
+    progress_pipe="$STATE_ROOT/progress.fifo"
     rm -f "$progress_pipe"
     /usr/bin/mkfifo "$progress_pipe"
     (
@@ -268,21 +262,75 @@ copy_job() {
         fi
       done
     ) &
-    local parser=$!
-    "$RSYNC_BIN" -a --partial --partial-dir='.cygentig-rsync-partial' --exclude='.cygentig-rsync-partial/' --no-inc-recursive --info=progress2 --outbuf=U --stats "$src/" "$dst" > "$progress_pipe" 2>> "$LOG_FILE" &
+    parser=$!
+    "$RSYNC_BIN" -a --partial --partial-dir='.cygentig-rsync-partial' \
+      --exclude='.cygentig-rsync-partial/' --no-inc-recursive --info=progress2 \
+      --outbuf=U --stats "${exclusions[@]}" "$src/" "$dst" > "$progress_pipe" 2>| "$error_file" &
   else
-    "$RSYNC_BIN" -aE --partial --partial-dir='.cygentig-rsync-partial' --exclude='.cygentig-rsync-partial/' --stats "$src/" "$dst" >> "$LOG_FILE" 2>&1 &
+    "$RSYNC_BIN" -aE --partial --partial-dir='.cygentig-rsync-partial' \
+      --exclude='.cygentig-rsync-partial/' --stats "${exclusions[@]}" \
+      "$src/" "$dst" >> "$LOG_FILE" 2>| "$error_file" &
   fi
-  local child=$!
+  child=$!
   print -r -- "$child" >| "$CHILD_PID_FILE"
   wait "$child"
-  local code=$?
+  code=$?
   rm -f "$CHILD_PID_FILE"
   if (( RSYNC3 )); then
     wait "$parser" 2>/dev/null || true
     rm -f "$progress_pipe"
   fi
+  [[ ! -s "$error_file" ]] || /bin/cat "$error_file" >> "$LOG_FILE"
+  return "$code"
+}
+
+copy_job() {
+  local src="$1" index="$2" total="$3"
+  local name="${src:t}" dst="$DEST_ROOT/${src:t}/"
+  local key="$(source_key "$src")"
+  local done_marker="$STATE_ROOT/${name}.${key}.copy-complete"
+  local error_file="$STATE_ROOT/${name}.${key}.rsync-errors.txt"
+  local denied_file="$STATE_ROOT/${name}.${key}.permission-denied.txt"
+  if [[ -f "$done_marker" ]]; then
+    set_status completed_skip "Already complete, skipped [$index/$total]: $name" "$index" "$total" "$name"
+    return 0
+  fi
+  mkdir -p "$dst"
+  set_status copying "Copying [$index/$total]: $name" "$index" "$total" "$name"
+  log "Starting/resuming $src/ -> $dst (rsync: $RSYNC_BIN)"
+  run_copy_attempt "$src" "$dst" "$error_file"
+  local code=$? denied relative escaped_relative skipped_count=0
+  local -a exclusions=()
+
+  if (( code == 23 )); then
+    /usr/bin/sed -n \
+      -e 's/^rsync: .*send_files failed to open "\(.*\)": Permission denied (13)$/\1/p' \
+      -e 's/^rsync: .*opendir "\(.*\)" failed: Permission denied (13)$/\1/p' \
+      "$error_file" >| "$denied_file"
+    while IFS= read -r denied; do
+      [[ "$denied" == "$src/"* ]] || continue
+      relative="${denied:${#src}+1}"
+      escaped_relative="$(print -rn -- "$relative" | /usr/bin/sed 's/[][?*\\]/\\&/g')"
+      exclusions+=("--exclude=/$escaped_relative")
+      print -r -- "$denied" >> "$SKIPPED_FILE"
+      (( skipped_count++ ))
+      log "Unreadable source item will be skipped: $denied"
+    done < "$denied_file"
+
+    if (( skipped_count > 0 )); then
+      set_status retrying_unreadable "Retrying [$index/$total]: $name; skipping $skipped_count unreadable item(s)" "$index" "$total" "$name" "$skipped_count"
+      log "Retrying with $skipped_count unreadable item(s) excluded."
+      run_copy_attempt "$src" "$dst" "$error_file" "${exclusions[@]}"
+      code=$?
+    fi
+  fi
+
   (( code == 0 )) || { set_status copy_interrupted "Copy interrupted [$index/$total]: $name; it can be resumed" "$index" "$total" "$name"; log "rsync exit code: $code"; return "$code"; }
+  if (( skipped_count > 0 )); then
+    set_status copied_with_skips "Copied [$index/$total]: $name; skipped $skipped_count unreadable item(s)" "$index" "$total" "$name" "$skipped_count"
+    log "Copy completed with $skipped_count unreadable item(s) skipped: $name"
+    return 0
+  fi
   touch "$done_marker"
   log "Copy complete: $name"
 }
@@ -307,9 +355,15 @@ if (( PREFLIGHT_FIRST )); then
   preflight_all || exit $?
 fi
 
+: >| "$SKIPPED_FILE"
 for source_path in "${NORMALIZED_SOURCES[@]}"; do
   (( index++ ))
   copy_job "$source_path" "$index" "$total" || exit $?
 done
-set_status all_copied "All $total folders copied. Content verification is available." "$total"
+skipped_total="$(/usr/bin/awk 'END {print NR + 0}' "$SKIPPED_FILE")"
+if (( skipped_total > 0 )); then
+  set_status all_copied_with_skips "All $total folders processed; $skipped_total unreadable item(s) skipped." "$total" "$skipped_total"
+else
+  set_status all_copied "All $total folders copied. Content verification is available." "$total"
+fi
 exit 0

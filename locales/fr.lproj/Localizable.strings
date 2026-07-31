@@ -67,3 +67,8 @@
 "worker_preflight_warning" = "Espace suffisant pour copier, mais inférieur à la marge de sécurité recommandée.";
 "worker_preflight_insufficient" = "Espace disque insuffisant. La copie n’a pas démarré.";
 "worker_preflight_error" = "Échec de la vérification de l’espace : %@ (voir le journal)";
+"show_skipped_files" = "Fichiers ignorés";
+"show_skipped_count" = "Fichiers ignorés (%lu)";
+"worker_retrying_unreadable" = "Nouvelle tentative [%@/%@] : %@ ; %@ élément(s) illisible(s) ignoré(s)";
+"worker_copied_with_skips" = "Copié [%@/%@] : %@ ; %@ élément(s) illisible(s) ignoré(s)";
+"worker_all_copied_with_skips" = "Les %@ dossier(s) ont été traités ; %@ élément(s) illisible(s) ignoré(s). Ouvrez la liste.";

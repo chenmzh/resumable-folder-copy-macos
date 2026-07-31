@@ -67,3 +67,8 @@
 "worker_preflight_warning" = "Enough space to copy, but below the recommended safety margin.";
 "worker_preflight_insufficient" = "Not enough disk space. Copying was not started.";
 "worker_preflight_error" = "Disk space check failed: %@ (see log)";
+"show_skipped_files" = "Skipped Files";
+"show_skipped_count" = "Skipped Files (%lu)";
+"worker_retrying_unreadable" = "Retrying [%@/%@]: %@; skipping %@ unreadable item(s)";
+"worker_copied_with_skips" = "Copied [%@/%@]: %@; skipped %@ unreadable item(s)";
+"worker_all_copied_with_skips" = "All %@ folder(s) processed; %@ unreadable item(s) skipped. Open the skipped-files list.";
