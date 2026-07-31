@@ -6,6 +6,7 @@
 "choose_sources" = "원본 선택…";
 "remove_selected" = "선택 항목 제거";
 "clear_list" = "목록 지우기";
+"remember_last_task" = "마지막 작업 기억";
 "destination_title" = "대상 폴더";
 "choose_destination" = "대상 선택…";
 "status_loading" = "상태 불러오는 중…";

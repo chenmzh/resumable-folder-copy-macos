@@ -5,6 +5,7 @@
 static NSString * const SourcesDefaultsKey = @"TransferSources";
 static NSString * const DestinationDefaultsKey = @"TransferDestination";
 static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
+static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
 
 @interface CapacityBarView : NSView
 @property(nonatomic) double value;
@@ -34,6 +35,7 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
 @property NSMutableArray<NSString *> *sources;
 @property NSString *destination;
 @property NSString *languageCode;
+@property BOOL rememberTasks;
 @property NSBundle *localizationBundle;
 @property NSTableView *sourceTable;
 @property NSTextField *destinationField;
@@ -55,6 +57,7 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
 @property NSButton *chooseSourcesButton;
 @property NSButton *removeButton;
 @property NSButton *clearButton;
+@property NSButton *rememberTaskToggle;
 @property NSButton *chooseDestinationButton;
 @property NSButton *checkSpaceButton;
 @property NSButton *startButton;
@@ -98,11 +101,16 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
 
 - (void)loadConfiguration {
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
-    NSArray *savedSources = [defaults stringArrayForKey:SourcesDefaultsKey];
-    NSString *savedDestination = [defaults stringForKey:DestinationDefaultsKey];
+    self.rememberTasks = [defaults boolForKey:RememberTaskDefaultsKey];
+    NSArray *savedSources = self.rememberTasks ? [defaults stringArrayForKey:SourcesDefaultsKey] : nil;
+    NSString *savedDestination = self.rememberTasks ? [defaults stringForKey:DestinationDefaultsKey] : nil;
     self.sources = savedSources ? [savedSources mutableCopy] : [NSMutableArray array];
     self.destination = savedDestination ?: @"";
     self.languageCode = [defaults stringForKey:LanguageDefaultsKey] ?: @"en";
+    if (!self.rememberTasks) {
+        [defaults removeObjectForKey:SourcesDefaultsKey];
+        [defaults removeObjectForKey:DestinationDefaultsKey];
+    }
     [self loadLocalizationBundle];
 
 }
@@ -143,6 +151,7 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     self.chooseSourcesButton.title = [self L:@"choose_sources"];
     self.removeButton.title = [self L:@"remove_selected"];
     self.clearButton.title = [self L:@"clear_list"];
+    self.rememberTaskToggle.title = [self L:@"remember_last_task"];
     self.chooseDestinationButton.title = [self L:@"choose_destination"];
     self.spaceBox.title = [self L:@"space_title"];
     self.checkSpaceButton.title = [self L:@"check_space"];
@@ -166,8 +175,19 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
 
 - (void)saveConfiguration {
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
-    [defaults setObject:self.sources forKey:SourcesDefaultsKey];
-    [defaults setObject:self.destination ?: @"" forKey:DestinationDefaultsKey];
+    [defaults setBool:self.rememberTasks forKey:RememberTaskDefaultsKey];
+    if (self.rememberTasks) {
+        [defaults setObject:self.sources forKey:SourcesDefaultsKey];
+        [defaults setObject:self.destination ?: @"" forKey:DestinationDefaultsKey];
+    } else {
+        [defaults removeObjectForKey:SourcesDefaultsKey];
+        [defaults removeObjectForKey:DestinationDefaultsKey];
+    }
+}
+
+- (void)toggleRememberTask:(id)sender {
+    self.rememberTasks = self.rememberTaskToggle.state == NSControlStateValueOn;
+    [self saveConfiguration];
 }
 
 - (void)buildWindow {
@@ -224,6 +244,10 @@ static NSString * const LanguageDefaultsKey = @"InterfaceLanguage";
     [content addSubview:self.chooseSourcesButton];
     [content addSubview:self.removeButton];
     [content addSubview:self.clearButton];
+    self.rememberTaskToggle = [NSButton checkboxWithTitle:[self L:@"remember_last_task"] target:self action:@selector(toggleRememberTask:)];
+    self.rememberTaskToggle.frame = NSMakeRect(452, 467, 340, 26);
+    self.rememberTaskToggle.state = self.rememberTasks ? NSControlStateValueOn : NSControlStateValueOff;
+    [content addSubview:self.rememberTaskToggle];
 
     self.destinationTitleLabel = [self label:[self L:@"destination_title"] size:14 weight:NSFontWeightSemibold color:NSColor.labelColor];
     self.destinationTitleLabel.frame = NSMakeRect(28, 426, 300, 22);

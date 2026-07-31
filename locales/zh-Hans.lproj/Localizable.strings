@@ -6,6 +6,7 @@
 "choose_sources" = "选择源文件夹…";
 "remove_selected" = "移除选中";
 "clear_list" = "清空列表";
+"remember_last_task" = "记住上次任务";
 "destination_title" = "目标目录";
 "choose_destination" = "选择目标…";
 "status_loading" = "正在读取状态…";

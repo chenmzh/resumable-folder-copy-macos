@@ -6,6 +6,7 @@
 "choose_sources" = "Choisir les sources…";
 "remove_selected" = "Retirer la sélection";
 "clear_list" = "Vider la liste";
+"remember_last_task" = "Mémoriser la dernière tâche";
 "destination_title" = "Dossier de destination";
 "choose_destination" = "Choisir la destination…";
 "status_loading" = "Chargement de l’état…";

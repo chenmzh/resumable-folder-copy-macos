@@ -6,6 +6,7 @@
 "choose_sources" = "Choose Sources…";
 "remove_selected" = "Remove Selected";
 "clear_list" = "Clear List";
+"remember_last_task" = "Remember last task";
 "destination_title" = "Destination folder";
 "choose_destination" = "Choose Destination…";
 "status_loading" = "Loading status…";

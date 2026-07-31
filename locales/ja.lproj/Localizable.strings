@@ -6,6 +6,7 @@
 "choose_sources" = "コピー元を選択…";
 "remove_selected" = "選択項目を削除";
 "clear_list" = "リストを消去";
+"remember_last_task" = "前回のタスクを記憶";
 "destination_title" = "コピー先フォルダ";
 "choose_destination" = "コピー先を選択…";
 "status_loading" = "状態を読み込み中…";

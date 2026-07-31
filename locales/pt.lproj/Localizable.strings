@@ -6,6 +6,7 @@
 "choose_sources" = "Escolher origens…";
 "remove_selected" = "Remover seleção";
 "clear_list" = "Limpar lista";
+"remember_last_task" = "Lembrar a última tarefa";
 "destination_title" = "Pasta de destino";
 "choose_destination" = "Escolher destino…";
 "status_loading" = "Carregando estado…";
