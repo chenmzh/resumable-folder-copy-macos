@@ -67,8 +67,10 @@
 "worker_preflight_warning" = "Genügend Speicher zum Kopieren, aber unter der empfohlenen Sicherheitsreserve.";
 "worker_preflight_insufficient" = "Nicht genügend Speicherplatz. Das Kopieren wurde nicht gestartet.";
 "worker_preflight_error" = "Speicherplatzprüfung fehlgeschlagen: %@ (siehe Protokoll)";
-"show_skipped_files" = "Übersprungene Dateien";
+"show_skipped_files" = "Übersprungene Elemente";
 "show_skipped_count" = "Übersprungen (%lu)";
 "worker_retrying_unreadable" = "Neuer Versuch [%@/%@]: %@; %@ nicht lesbare Elemente werden übersprungen";
 "worker_copied_with_skips" = "Kopiert [%@/%@]: %@; %@ nicht lesbare Elemente übersprungen";
 "worker_all_copied_with_skips" = "Alle %@ Ordner verarbeitet; %@ nicht lesbare Elemente übersprungen. Liste öffnen.";
+"worker_preflight_directory_skipped" = "Nicht lesbarer Ordner bei Speicherprüfung übersprungen [%@/%@]: %@";
+"worker_directory_skipped" = "Nicht lesbarer Ordner übersprungen [%@/%@]: %@";

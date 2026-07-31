@@ -67,8 +67,10 @@
 "worker_preflight_warning" = "Há espaço para copiar, mas está abaixo da margem de segurança recomendada.";
 "worker_preflight_insufficient" = "Não há espaço suficiente no disco. A cópia não foi iniciada.";
 "worker_preflight_error" = "Falha na verificação de espaço: %@ (consulte o registro)";
-"show_skipped_files" = "Ficheiros ignorados";
-"show_skipped_count" = "Ficheiros ignorados (%lu)";
+"show_skipped_files" = "Itens ignorados";
+"show_skipped_count" = "Itens ignorados (%lu)";
 "worker_retrying_unreadable" = "Nova tentativa [%@/%@]: %@; ignorando %@ itens ilegíveis";
 "worker_copied_with_skips" = "Copiado [%@/%@]: %@; %@ itens ilegíveis ignorados";
 "worker_all_copied_with_skips" = "Todas as %@ pastas foram processadas; %@ itens ilegíveis ignorados. Abra a lista.";
+"worker_preflight_directory_skipped" = "Pasta ilegível ignorada durante a verificação de espaço [%@/%@]: %@";
+"worker_directory_skipped" = "Pasta ilegível ignorada [%@/%@]: %@";

@@ -55,6 +55,8 @@ PREFLIGHT_CODE_FILE="$STATE_ROOT/preflight-code.txt"
 PREFLIGHT_VALUES_FILE="$STATE_ROOT/preflight-values.txt"
 PREFLIGHT_CONFIG_FILE="$STATE_ROOT/preflight-config.txt"
 SKIPPED_FILE="$STATE_ROOT/skipped-unreadable-files.txt"
+SKIPPED_DIRECTORY_FILE="$STATE_ROOT/skipped-unreadable-directories.txt"
+SKIPPED_HISTORY_FILE="$STATE_ROOT/skipped-unreadable-history.log"
 
 if [[ -x /opt/homebrew/bin/rsync ]]; then
   RSYNC_BIN=/opt/homebrew/bin/rsync
@@ -129,6 +131,23 @@ source_key() {
   print -rn -- "$1" | /usr/bin/shasum -a 256 | /usr/bin/awk '{print substr($1,1,16)}'
 }
 
+record_skipped_item() {
+  local kind="$1" item_path="$2"
+  if [[ ! -f "$SKIPPED_FILE" ]] || ! /usr/bin/grep -Fqx "$item_path" "$SKIPPED_FILE" 2>/dev/null; then
+    print -r -- "$item_path" >> "$SKIPPED_FILE"
+    if [[ "$kind" == directory ]]; then print -r -- "$item_path" >> "$SKIPPED_DIRECTORY_FILE"; fi
+    print -r -- "[$(timestamp)] [$kind] $item_path" >> "$SKIPPED_HISTORY_FILE"
+    log "Skipped unreadable $kind: $item_path"
+  fi
+}
+
+exclusion_pattern() {
+  local src="$1" item_path="$2" kind="$3"
+  local relative="${item_path:${#src}+1}"
+  local escaped="$(print -rn -- "$relative" | /usr/bin/sed 's/[][?*\\]/\\&/g')"
+  if [[ "$kind" == directory ]]; then print -r -- "/$escaped/"; else print -r -- "/$escaped"; fi
+}
+
 write_preflight_config() {
   : >| "$PREFLIGHT_CONFIG_FILE"
   print -r -- "$DEST_ROOT" >> "$PREFLIGHT_CONFIG_FILE"
@@ -147,6 +166,22 @@ write_preflight_result() {
   } >| "$PREFLIGHT_VALUES_FILE"
 }
 
+run_preflight_attempt() {
+  local src="$1" dst="$2" listing="$3" error_file="$4"
+  shift 4
+  local -a exclusions=("$@")
+  "$RSYNC_BIN" -an --partial --partial-dir='.cygentig-rsync-partial' \
+    --exclude='.cygentig-rsync-partial/' --itemize-changes --out-format='%i|%l|%n' \
+    "${exclusions[@]}" "$src/" "$dst/" >| "$listing" 2>| "$error_file" &
+  local child=$!
+  print -r -- "$child" >| "$CHILD_PID_FILE"
+  wait "$child"
+  local result=$?
+  rm -f "$CHILD_PID_FILE"
+  [[ ! -s "$error_file" ]] || /bin/cat "$error_file" >> "$LOG_FILE"
+  return "$result"
+}
+
 preflight_all() {
   local total=${#NORMALIZED_SOURCES[@]} index=0
   local cumulative_delta=0 required_peak=0 total_transfer=0
@@ -156,6 +191,9 @@ preflight_all() {
   write_preflight_config
 
   local src name dst key done_marker change length relative target old_size temp_peak
+  local error_file denied_file exclude_file skip_marker denied pattern
+  local result attempts new_directories source_skipped
+  local -a exclusions
   for src in "${NORMALIZED_SOURCES[@]}"; do
     (( index++ ))
     name="${src:t}"
@@ -163,20 +201,64 @@ preflight_all() {
     key="$(source_key "$src")"
     done_marker="$STATE_ROOT/${name}.${key}.copy-complete"
     [[ -f "$done_marker" ]] && continue
+    error_file="$STATE_ROOT/${name}.${key}.preflight-errors.txt"
+    denied_file="$STATE_ROOT/${name}.${key}.unreadable-directories.txt"
+    exclude_file="$STATE_ROOT/${name}.${key}.unreadable-excludes.txt"
+    skip_marker="$STATE_ROOT/${name}.${key}.unreadable-source-skip"
+    rm -f "$skip_marker"
+    : >| "$exclude_file"
+    exclusions=()
     set_status preflight_scanning "Checking disk space [$index/$total]: $name" "$index" "$total" "$name"
     mkdir -p "$dst"
-    "$RSYNC_BIN" -an --partial --partial-dir='.cygentig-rsync-partial' \
-      --exclude='.cygentig-rsync-partial/' --itemize-changes --out-format='%i|%l|%n' \
-      "$src/" "$dst/" >| "$listing" 2>> "$LOG_FILE" &
-    local child=$!
-    print -r -- "$child" >| "$CHILD_PID_FILE"
-    wait "$child"
-    local result=$?
-    rm -f "$CHILD_PID_FILE"
-    if (( result != 0 )); then
+    attempts=0
+    source_skipped=0
+    result=1
+    while (( attempts < 100 )); do
+      (( attempts++ ))
+      run_preflight_attempt "$src" "$dst" "$listing" "$error_file" "${exclusions[@]}"
+      result=$?
+      (( result == 0 )) && break
+      if (( result == 23 )); then
+        /usr/bin/sed -n \
+          -e 's/^rsync: .*readdir("\(.*\)"): Permission denied (13)$/\1/p' \
+          -e 's/^rsync: .*opendir "\(.*\)" failed: Permission denied (13)$/\1/p' \
+          -e 's/^rsync: .*change_dir "\(.*\)" failed: Permission denied (13)$/\1/p' \
+          "$error_file" >| "$denied_file"
+        new_directories=0
+        while IFS= read -r denied; do
+          denied="${denied%/.}"
+          denied="${denied%/}"
+          [[ "$denied" == "$src" || "$denied" == "$src/"* ]] || continue
+          if [[ "$denied" == "$src" ]]; then
+            record_skipped_item directory "$denied"
+            touch "$skip_marker"
+            source_skipped=1
+            break
+          fi
+          pattern="$(exclusion_pattern "$src" "$denied" directory)"
+          if ! /usr/bin/grep -Fqx "$pattern" "$exclude_file" 2>/dev/null; then
+            print -r -- "$pattern" >> "$exclude_file"
+            exclusions+=("--exclude=$pattern")
+            record_skipped_item directory "$denied"
+            (( new_directories++ ))
+          fi
+        done < "$denied_file"
+        (( source_skipped )) && break
+        (( new_directories > 0 )) && continue
+      fi
       rm -f "$listing"
       write_preflight_result error 0 0 0 0
       set_status preflight_error "Disk space check failed: $name (see log)" "$name"
+      return "$result"
+    done
+    if (( source_skipped )); then
+      set_status preflight_directory_skipped "Unreadable folder skipped during space check [$index/$total]: $name" "$index" "$total" "$name"
+      continue
+    fi
+    if (( result != 0 )); then
+      rm -f "$listing"
+      write_preflight_result error 0 0 0 0
+      set_status preflight_error "Disk space check failed after repeated retries: $name (see log)" "$name"
       return "$result"
     fi
 
@@ -291,39 +373,73 @@ copy_job() {
   local done_marker="$STATE_ROOT/${name}.${key}.copy-complete"
   local error_file="$STATE_ROOT/${name}.${key}.rsync-errors.txt"
   local denied_file="$STATE_ROOT/${name}.${key}.permission-denied.txt"
+  local exclude_file="$STATE_ROOT/${name}.${key}.unreadable-excludes.txt"
+  local skip_marker="$STATE_ROOT/${name}.${key}.unreadable-source-skip"
   if [[ -f "$done_marker" ]]; then
     set_status completed_skip "Already complete, skipped [$index/$total]: $name" "$index" "$total" "$name"
+    return 0
+  fi
+  if [[ -f "$skip_marker" ]]; then
+    set_status directory_skipped "Unreadable folder skipped [$index/$total]: $name" "$index" "$total" "$name"
+    log "Continuing after unreadable source folder: $src"
     return 0
   fi
   mkdir -p "$dst"
   set_status copying "Copying [$index/$total]: $name" "$index" "$total" "$name"
   log "Starting/resuming $src/ -> $dst (rsync: $RSYNC_BIN)"
-  run_copy_attempt "$src" "$dst" "$error_file"
-  local code=$? denied relative escaped_relative skipped_count=0
+  local code=1 denied pattern item_kind skipped_count=0 new_skips attempts=0 source_skipped=0
   local -a exclusions=()
+  if [[ -f "$exclude_file" ]]; then
+    while IFS= read -r pattern; do
+      [[ -n "$pattern" ]] || continue
+      exclusions+=("--exclude=$pattern")
+      (( skipped_count++ ))
+    done < "$exclude_file"
+  fi
 
-  if (( code == 23 )); then
+  while (( attempts < 100 )); do
+    (( attempts++ ))
+    run_copy_attempt "$src" "$dst" "$error_file" "${exclusions[@]}"
+    code=$?
+    (( code == 0 )) && break
+    (( code == 23 )) || break
     /usr/bin/sed -n \
       -e 's/^rsync: .*send_files failed to open "\(.*\)": Permission denied (13)$/\1/p' \
+      -e 's/^rsync: .*readdir("\(.*\)"): Permission denied (13)$/\1/p' \
       -e 's/^rsync: .*opendir "\(.*\)" failed: Permission denied (13)$/\1/p' \
+      -e 's/^rsync: .*change_dir "\(.*\)" failed: Permission denied (13)$/\1/p' \
       "$error_file" >| "$denied_file"
+    new_skips=0
     while IFS= read -r denied; do
-      [[ "$denied" == "$src/"* ]] || continue
-      relative="${denied:${#src}+1}"
-      escaped_relative="$(print -rn -- "$relative" | /usr/bin/sed 's/[][?*\\]/\\&/g')"
-      exclusions+=("--exclude=/$escaped_relative")
-      print -r -- "$denied" >> "$SKIPPED_FILE"
-      (( skipped_count++ ))
-      log "Unreadable source item will be skipped: $denied"
+      denied="${denied%/.}"
+      denied="${denied%/}"
+      [[ "$denied" == "$src" || "$denied" == "$src/"* ]] || continue
+      item_kind=file
+      [[ -d "$denied" ]] && item_kind=directory
+      if [[ "$denied" == "$src" ]]; then
+        record_skipped_item directory "$denied"
+        touch "$skip_marker"
+        source_skipped=1
+        break
+      fi
+      pattern="$(exclusion_pattern "$src" "$denied" "$item_kind")"
+      if [[ ! -f "$exclude_file" ]] || ! /usr/bin/grep -Fqx "$pattern" "$exclude_file" 2>/dev/null; then
+        print -r -- "$pattern" >> "$exclude_file"
+        exclusions+=("--exclude=$pattern")
+        record_skipped_item "$item_kind" "$denied"
+        (( skipped_count++ ))
+        (( new_skips++ ))
+      fi
     done < "$denied_file"
-
-    if (( skipped_count > 0 )); then
-      set_status retrying_unreadable "Retrying [$index/$total]: $name; skipping $skipped_count unreadable item(s)" "$index" "$total" "$name" "$skipped_count"
-      log "Retrying with $skipped_count unreadable item(s) excluded."
-      run_copy_attempt "$src" "$dst" "$error_file" "${exclusions[@]}"
-      code=$?
+    if (( source_skipped )); then
+      set_status directory_skipped "Unreadable folder skipped [$index/$total]: $name" "$index" "$total" "$name"
+      log "Continuing after unreadable source folder: $src"
+      return 0
     fi
-  fi
+    (( new_skips > 0 )) || break
+    set_status retrying_unreadable "Retrying [$index/$total]: $name; skipping $skipped_count unreadable item(s)" "$index" "$total" "$name" "$skipped_count"
+    log "Retrying with $skipped_count unreadable item(s) excluded."
+  done
 
   (( code == 0 )) || { set_status copy_interrupted "Copy interrupted [$index/$total]: $name; it can be resumed" "$index" "$total" "$name"; log "rsync exit code: $code"; return "$code"; }
   if (( skipped_count > 0 )); then
@@ -337,6 +453,10 @@ copy_job() {
 
 total=${#NORMALIZED_SOURCES[@]}
 index=0
+if (( ! VERIFY_ONLY )); then
+  : >| "$SKIPPED_FILE"
+  : >| "$SKIPPED_DIRECTORY_FILE"
+fi
 if (( PREFLIGHT_ONLY )); then
   preflight_all
   exit $?
@@ -355,7 +475,6 @@ if (( PREFLIGHT_FIRST )); then
   preflight_all || exit $?
 fi
 
-: >| "$SKIPPED_FILE"
 for source_path in "${NORMALIZED_SOURCES[@]}"; do
   (( index++ ))
   copy_job "$source_path" "$index" "$total" || exit $?
