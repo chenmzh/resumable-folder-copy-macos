@@ -67,3 +67,8 @@
 "worker_preflight_warning" = "복사할 공간은 있지만 권장 안전 여유 공간보다 적습니다.";
 "worker_preflight_insufficient" = "디스크 공간이 부족합니다. 복사를 시작하지 않았습니다.";
 "worker_preflight_error" = "디스크 공간 확인 실패: %@ (로그 확인)";
+"show_skipped_files" = "건너뛴 파일";
+"show_skipped_count" = "건너뛴 파일 (%lu)";
+"worker_retrying_unreadable" = "재시도 중 [%@/%@]: %@; 읽을 수 없는 항목 %@개 건너뜀";
+"worker_copied_with_skips" = "복사됨 [%@/%@]: %@; 읽을 수 없는 항목 %@개 건너뜀";
+"worker_all_copied_with_skips" = "모든 %@개 폴더를 처리했습니다. 읽을 수 없는 항목 %@개를 건너뛰었습니다. 목록을 확인하세요.";

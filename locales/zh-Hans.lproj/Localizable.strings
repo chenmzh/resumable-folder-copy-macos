@@ -67,3 +67,8 @@
 "worker_preflight_warning" = "空间足够复制，但低于建议安全余量。";
 "worker_preflight_insufficient" = "磁盘空间不足，未开始复制。";
 "worker_preflight_error" = "磁盘空间检查失败：%@（请查看日志）";
+"show_skipped_files" = "查看跳过文件";
+"show_skipped_count" = "跳过文件（%lu）";
+"worker_retrying_unreadable" = "正在重试 [%@/%@]：%@；跳过 %@ 个无法读取的项目";
+"worker_copied_with_skips" = "已复制 [%@/%@]：%@；跳过 %@ 个无法读取的项目";
+"worker_all_copied_with_skips" = "全部 %@ 个目录已处理；跳过 %@ 个无法读取的项目。请打开跳过文件列表。";

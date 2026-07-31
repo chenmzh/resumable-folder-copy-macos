@@ -9,8 +9,8 @@
   <key>CFBundleName</key><string>Resumable Folder Copy</string>
   <key>CFBundleDisplayName</key><string>Resumable Folder Copy</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>2.3.0</string>
-  <key>CFBundleVersion</key><string>6</string>
+  <key>CFBundleShortVersionString</key><string>2.4.0</string>
+  <key>CFBundleVersion</key><string>7</string>
   <key>CFBundleLocalizations</key>
   <array>
     <string>en</string><string>zh-Hans</string><string>de</string><string>fr</string><string>it</string>

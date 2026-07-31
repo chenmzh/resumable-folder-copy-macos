@@ -65,6 +65,7 @@ static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
 @property NSButton *verifyButton;
 @property NSButton *logButton;
 @property NSButton *revealButton;
+@property NSButton *skippedButton;
 @property NSTimer *timer;
 @end
 
@@ -160,6 +161,7 @@ static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
     self.verifyButton.title = [self L:@"verify"];
     self.logButton.title = [self L:@"open_log"];
     self.revealButton.title = [self L:@"show_destination"];
+    self.skippedButton.title = [self L:@"show_skipped_files"];
     self.noteLabel.stringValue = [self L:@"note"];
 }
 
@@ -287,12 +289,13 @@ static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
     self.progressLabel.frame = NSMakeRect(28, 170, 764, 22);
     [content addSubview:self.progressLabel];
 
-    self.startButton = [self button:[self L:@"start_resume"] action:@selector(startTransfer:) frame:NSMakeRect(28, 120, 135, 34)];
-    self.pauseButton = [self button:[self L:@"pause"] action:@selector(pauseTransfer:) frame:NSMakeRect(175, 120, 95, 34)];
-    self.verifyButton = [self button:[self L:@"verify"] action:@selector(startVerification:) frame:NSMakeRect(282, 120, 115, 34)];
-    self.logButton = [self button:[self L:@"open_log"] action:@selector(openLog:) frame:NSMakeRect(409, 120, 105, 34)];
-    self.revealButton = [self button:[self L:@"show_destination"] action:@selector(revealDestination:) frame:NSMakeRect(526, 120, 145, 34)];
-    for (NSButton *button in @[self.startButton, self.pauseButton, self.verifyButton, self.logButton, self.revealButton]) [content addSubview:button];
+    self.startButton = [self button:[self L:@"start_resume"] action:@selector(startTransfer:) frame:NSMakeRect(28, 120, 130, 34)];
+    self.pauseButton = [self button:[self L:@"pause"] action:@selector(pauseTransfer:) frame:NSMakeRect(166, 120, 88, 34)];
+    self.verifyButton = [self button:[self L:@"verify"] action:@selector(startVerification:) frame:NSMakeRect(262, 120, 110, 34)];
+    self.logButton = [self button:[self L:@"open_log"] action:@selector(openLog:) frame:NSMakeRect(380, 120, 96, 34)];
+    self.revealButton = [self button:[self L:@"show_destination"] action:@selector(revealDestination:) frame:NSMakeRect(484, 120, 130, 34)];
+    self.skippedButton = [self button:[self L:@"show_skipped_files"] action:@selector(openSkippedFiles:) frame:NSMakeRect(622, 120, 170, 34)];
+    for (NSButton *button in @[self.startButton, self.pauseButton, self.verifyButton, self.logButton, self.revealButton, self.skippedButton]) [content addSubview:button];
 
     self.noteLabel = [self label:[self L:@"note"] size:12 weight:NSFontWeightRegular color:NSColor.tertiaryLabelColor];
     self.noteLabel.frame = NSMakeRect(28, 68, 764, 34);
@@ -470,6 +473,9 @@ static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
     if ([code isEqualToString:@"copying"] || [code isEqualToString:@"completed_skip"] || [code isEqualToString:@"verifying"] || [code isEqualToString:@"verify_failed"] || [code isEqualToString:@"verify_difference"] || [code isEqualToString:@"copy_interrupted"]) {
         return [NSString stringWithFormat:[self L:[@"worker_" stringByAppendingString:code]], arg(0), arg(1), arg(2)];
     }
+    if ([code isEqualToString:@"retrying_unreadable"] || [code isEqualToString:@"copied_with_skips"]) {
+        return [NSString stringWithFormat:[self L:[@"worker_" stringByAppendingString:code]], arg(0), arg(1), arg(2), arg(3)];
+    }
     if ([code isEqualToString:@"preflight_scanning"]) {
         return [NSString stringWithFormat:[self L:@"worker_preflight_scanning"], arg(0), arg(1), arg(2)];
     }
@@ -481,6 +487,9 @@ static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
     }
     if ([code isEqualToString:@"all_verified"] || [code isEqualToString:@"all_copied"]) {
         return [NSString stringWithFormat:[self L:[@"worker_" stringByAppendingString:code]], arg(0)];
+    }
+    if ([code isEqualToString:@"all_copied_with_skips"]) {
+        return [NSString stringWithFormat:[self L:@"worker_all_copied_with_skips"], arg(0), arg(1)];
     }
     return nil;
 }
@@ -519,7 +528,7 @@ static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
     } else {
         self.progressBar.indeterminate = NO;
         [self.progressBar stopAnimation:nil];
-        BOOL complete = [statusCode isEqualToString:@"all_copied"] || [statusCode isEqualToString:@"all_verified"];
+        BOOL complete = [statusCode isEqualToString:@"all_copied"] || [statusCode isEqualToString:@"all_copied_with_skips"] || [statusCode isEqualToString:@"all_verified"];
         self.progressBar.doubleValue = complete ? 100 : 0;
         self.progressLabel.stringValue = complete ? [self L:@"progress_complete"] : [self L:@"progress_waiting"];
     }
@@ -534,6 +543,13 @@ static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
     self.startButton.enabled = configurable && hasConfiguration && ![self.spaceResultCode isEqualToString:@"insufficient"];
     self.verifyButton.enabled = configurable && hasConfiguration;
     self.pauseButton.enabled = running;
+    NSArray<NSString *> *skippedConfiguration = [self readLines:[[self stateRoot] stringByAppendingPathComponent:@"preflight-config.txt"]];
+    NSArray<NSString *> *skippedFiles = [self preflightConfigurationMatches:skippedConfiguration]
+        ? [self readLines:[[self stateRoot] stringByAppendingPathComponent:@"skipped-unreadable-files.txt"]] : @[];
+    self.skippedButton.title = skippedFiles.count
+        ? [NSString stringWithFormat:[self L:@"show_skipped_count"], (unsigned long)skippedFiles.count]
+        : [self L:@"show_skipped_files"];
+    self.skippedButton.enabled = skippedFiles.count > 0;
 }
 
 - (void)tableViewSelectionDidChange:(NSNotification *)notification { [self refreshStatus]; }
@@ -605,6 +621,12 @@ static NSString * const RememberTaskDefaultsKey = @"RememberLastTask";
     NSString *path = [root stringByAppendingPathComponent:@"transfer.log"];
     [NSFileManager.defaultManager createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:nil];
     if (![NSFileManager.defaultManager fileExistsAtPath:path]) [NSFileManager.defaultManager createFileAtPath:path contents:NSData.data attributes:nil];
+    [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:path]];
+}
+
+- (void)openSkippedFiles:(id)sender {
+    NSString *path = [[self stateRoot] stringByAppendingPathComponent:@"skipped-unreadable-files.txt"];
+    if (![NSFileManager.defaultManager fileExistsAtPath:path]) return;
     [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:path]];
 }
 
