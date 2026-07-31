@@ -52,3 +52,17 @@
 "worker_copy_interrupted" = "Copie interrompue [%@/%@] : %@ ; elle peut reprendre";
 "worker_all_verified" = "Les %@ dossier(s) ont réussi la vérification du contenu.";
 "worker_all_copied" = "Les %@ dossier(s) ont été copiés. La vérification du contenu est disponible.";
+"space_title" = "Vérification de l’espace disque";
+"check_space" = "Vérifier l’espace";
+"space_not_checked" = "Pas encore vérifié — le démarrage le fera automatiquement";
+"space_checking" = "Calcul du volume réel restant à copier…";
+"space_ok" = "Espace suffisant, marge de sécurité comprise";
+"space_warning" = "Espace suffisant pour copier, mais marge de sécurité faible";
+"space_insufficient" = "Espace insuffisant — copie bloquée";
+"space_error" = "Échec de la vérification — voir le journal";
+"space_detail" = "Requis : %@   Disponible : %@   Marge de sécurité : %@";
+"worker_preflight_scanning" = "Vérification de l’espace [%@/%@] : %@";
+"worker_preflight_ok" = "Vérification de l’espace disque réussie.";
+"worker_preflight_warning" = "Espace suffisant pour copier, mais inférieur à la marge de sécurité recommandée.";
+"worker_preflight_insufficient" = "Espace disque insuffisant. La copie n’a pas démarré.";
+"worker_preflight_error" = "Échec de la vérification de l’espace : %@ (voir le journal)";

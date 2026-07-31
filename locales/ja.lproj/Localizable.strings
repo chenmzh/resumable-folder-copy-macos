@@ -52,3 +52,17 @@
 "worker_copy_interrupted" = "コピー中断 [%@/%@]：%@；再開できます";
 "worker_all_verified" = "全%@フォルダが内容検証に合格しました。";
 "worker_all_copied" = "全%@フォルダのコピーが完了しました。内容検証を実行できます。";
+"space_title" = "ディスク空き容量の事前確認";
+"check_space" = "空き容量を確認";
+"space_not_checked" = "未確認 — 開始時に自動確認します";
+"space_checking" = "実際に残っているコピー量を計算中…";
+"space_ok" = "安全マージンを含めて十分な空き容量があります";
+"space_warning" = "コピー可能ですが、安全マージンが少なめです";
+"space_insufficient" = "空き容量不足 — コピーを停止しました";
+"space_error" = "空き容量の確認に失敗 — ログを確認してください";
+"space_detail" = "必要：%@   利用可能：%@   安全マージン：%@";
+"worker_preflight_scanning" = "空き容量を確認中 [%@/%@]：%@";
+"worker_preflight_ok" = "ディスク空き容量の確認に合格しました。";
+"worker_preflight_warning" = "コピー可能ですが、推奨される安全マージンを下回っています。";
+"worker_preflight_insufficient" = "ディスクの空き容量が不足しています。コピーは開始されませんでした。";
+"worker_preflight_error" = "空き容量の確認に失敗：%@（ログを確認）";

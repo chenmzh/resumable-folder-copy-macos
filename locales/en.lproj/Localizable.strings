@@ -52,3 +52,17 @@
 "worker_copy_interrupted" = "Copy interrupted [%@/%@]: %@; it can be resumed";
 "worker_all_verified" = "All %@ folder(s) passed content verification.";
 "worker_all_copied" = "All %@ folder(s) copied. Content verification is available.";
+"space_title" = "Disk space preflight";
+"check_space" = "Check Space";
+"space_not_checked" = "Not checked yet — Start will check automatically";
+"space_checking" = "Calculating the actual pending copy size…";
+"space_ok" = "Enough space, including the recommended safety margin";
+"space_warning" = "Enough to copy, but the safety margin is tight";
+"space_insufficient" = "Not enough space — copying is blocked";
+"space_error" = "Space check failed — see the log";
+"space_detail" = "Required: %@   Available: %@   Safety margin: %@";
+"worker_preflight_scanning" = "Checking disk space [%@/%@]: %@";
+"worker_preflight_ok" = "Disk space check passed.";
+"worker_preflight_warning" = "Enough space to copy, but below the recommended safety margin.";
+"worker_preflight_insufficient" = "Not enough disk space. Copying was not started.";
+"worker_preflight_error" = "Disk space check failed: %@ (see log)";

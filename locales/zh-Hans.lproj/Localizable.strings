@@ -52,3 +52,17 @@
 "worker_copy_interrupted" = "复制中断 [%@/%@]：%@；可再次继续";
 "worker_all_verified" = "全部 %@ 个目录均已通过逐内容校验。";
 "worker_all_copied" = "全部 %@ 个目录复制完成；可运行逐内容校验。";
+"space_title" = "磁盘空间预检";
+"check_space" = "检查空间";
+"space_not_checked" = "尚未检查——点击开始时会自动检查";
+"space_checking" = "正在计算实际待复制数据量…";
+"space_ok" = "空间充足，已包含建议安全余量";
+"space_warning" = "可以完成复制，但安全余量较小";
+"space_insufficient" = "空间不足——已阻止复制";
+"space_error" = "空间检查失败——请查看日志";
+"space_detail" = "需要：%@   可用：%@   安全余量：%@";
+"worker_preflight_scanning" = "正在检查磁盘空间 [%@/%@]：%@";
+"worker_preflight_ok" = "磁盘空间检查通过。";
+"worker_preflight_warning" = "空间足够复制，但低于建议安全余量。";
+"worker_preflight_insufficient" = "磁盘空间不足，未开始复制。";
+"worker_preflight_error" = "磁盘空间检查失败：%@（请查看日志）";
